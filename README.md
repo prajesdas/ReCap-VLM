@@ -1,117 +1,64 @@
-# ReCap-VLM: Vision-Language Model for Image Captioning and Restoration
+# pit   ---  Pictures: Iterative Thresholding algorithms
 
-ReCap-VLM is a deep learning project integrating **image captioning** and **image restoration** through modern **vision-language models (VLMs)**. It leverages pretrained architectures like **InceptionV3**, **CLIP**, and **Transformer-based decoders** to generate high-quality captions from images while enhancing degraded visuals before captioning.  
+## A compressed sensing based image recovery demonstration 
 
----
+*Author:* [Martin Kliesch](http://www.mkliesch.eu/)
 
-##  Features
-- Automatic image caption generation using attention-based encoder-decoder architecture  
-- Image restoration (denoising, deblurring, enhancement) before caption generation  
-- Utilizes pretrained CNN and Transformer layers for robust multimodal learning  
-- Supports **MS COCO**, **Flickr8k**, and custom datasets  
-- Modular and extensible structure for research and real-world applications  
 
----
 
-##  Model Architecture
-The architecture includes:
-1. **Encoder (InceptionV3 / ResNet)** for feature extraction  
-2. **Attention Mechanism** for spatial focus  
-3. **LSTM/GRU Decoder** for sequence generation  
-4. **Vision-Language Fusion Layer** integrating textual and visual embeddings  
-5. Optional **Diffusion/Restoration Module** for image quality improvement  
+A simple and fast implementation of the *iterative hard and soft threosholding algorithms* (IHT and ISTA) for image recovery. It provides:
 
----
+* Reconstructions of images from few of their pixels (masked images)
+  (see the Jupyter notebook demoIHT.ipynb for a working example)
+* It relies on the images being sparse under
+    - The fast *discrete cosine transform* (DCT) 
+      (based on [scipy.fftpack.dct](https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.fftpack.dct.html))
+    - The fast *wavelet transform* (WT) 
+      (based on [pywt.wavedec2](http://pywavelets.readthedocs.io/en/latest/ref/2d-dwt-and-idwt.html))
+* Possible thresholding operations:
+    - Hard thresholding (IHT)
+    - Soft thresholding (ISTA)
+* A demonstration of the functioning of image compression is included
+  (Jupyter notebook [demo_image_compression.ipynb](./demo_image_compression.ipynb))
 
-## Workflow
+### How to run it
+A simple example can be found in the Jupyter notebook [demoIHT.ipynb](./demoIT.ipynb). 
 
-```text
-Input Image → Preprocessing → Restoration → Feature Extraction → 
-Attention Module → Text Decoder → Generated Caption
-````
+## Description of what it does
+Given a picture (left image) we remove a large number of its pixels (middle image). Then we can reconstructs the image (right image) from the middle one; see the Jupyter notebook [demo_image_compression.ipynb](./demo_image_compression.ipynb) on how it is done.
 
----
+Given picture | 95% of its pixels removed | Reconstruction 
+:-------------------------:|:-------------------------:|:-------------------------:
+<img src="./pics/marie_curie.jpg" width="292" height="321" /> | <img src="./pics/marie_curie_masked.jpg" width="292" height="321" /> | <img src="./pics/marie_curie_rec.jpg" width="292" height="321" />
 
-## 🗂 Dataset
+## How it works (theory)
+Images are compressible (see [demo_image_compression.ipynb](./demo_image_compression.ipynb) for an illustration). Effectively, the reconstruction algorithms of **pit** search for an image in *the space of compressed images* that is compatible with the given pixels. 
 
-* **MS COCO** (Common Objects in Context)
-* **Flickr8k / Flickr30k**
-* Each image is paired with five human-written captions for linguistic diversity.
+### Mathematical description
+Let *T* be an invertible transformation taking images to vectors so that the vectors are sparse (i.e., many coefficients are zero) and let *iT* be the inverse of *T*. Examples for such a *T* are the DCT and many versions of the WT. Moreover, let *TO* be a thresholding operator (hard or soft thresholding). 
 
----
+Suppose we are given a subset of pixels *Xsub* of an image *Xorig* and the indices *mask* of these pixels. Then the reconstruction algorithm *pit.estimate* essentially does the following iteration:
 
-## Installation
+    X = Xsub
+    repeat
+        x = TO( T(X) )
+        X = iT(x)
+    until a stopping criterion is met
 
-```bash
-git clone https://github.com/prajesdas/ReCap-VLM.git
-cd ReCap-VLM
-pip install -r requirements.txt
-```
+For certain transformations *T* this algorithm essentially solves the problem:
 
----
+    minimize     norm( T(X), L1 )
+    subject to   norm( X(mask) - Xsub, Frobenius) <= eta
 
-## Usage
+In order to rigorously guarantee this procedure to work *T* needs to satisfy certain properties. If *X* is sparse and there are enough pixels in *Xsub* (depending on the sparsity of *X*) then the minimum is attained for *Xrec* that is *eta*-close to *X* in Frobenius norm. 
 
-```bash
-python main.py
-```
+### Acknowledgment 
+I thank Stephan Wäldchen for discussions. 
+This project has been funded by the National Science Centre, Poland (Polonez 2015/19/P/ST2/03001), i.e., This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No. 665778. 
 
-Upload or load an image, and the model will restore and generate a descriptive caption automatically.
+<img src="./pics/ncn-logo.png" height="30" /> &nbsp; <img src="./pics/eu-logo.jpg" height="30" />
 
----
-
-## 📊 Results
-
-| Task             | Metric | Score   |
-| ---------------- | ------ | ------- |
-| Image Captioning | BLEU-4 | 0.247   |
-| Restoration      | PSNR   | 33.5 dB |
-| Restoration      | SSIM   | 0.92    |
-
-> Results are based on the Flickr8k dataset and benchmark restoration models like MPRNet and SwinIR.
-
----
-
-## 🧰 Technologies Used
-
-* Python, TensorFlow / PyTorch
-* NumPy, OpenCV, Matplotlib
-* Pretrained models: InceptionV3, CLIP, SwinIR, MPRNet
-
----
-
-## 📈 Future Improvements
-
-* Add multilingual caption generation
-* Extend restoration for real-time streaming input
-* Integrate with diffusion models for enhanced realism
-
----
-
-## 📚 References
-
-This work builds upon major contributions in multimodal AI, including:
-
-* CLIP (Radford et al., 2021)
-* MPRNet (Zamir et al., 2021)
-* SwinIR (Liang et al., 2021)
-* Res-Captioner (Sun et al., 2023)
-
----
-
-## 🧑‍💻 Author
-
-**Prajes Das**
-Student | AI & Computer Vision Research Enthusiast
-GitHub: [prajesdas](https://github.com/prajesdas)
-
----
-
-## 🪪 License
-
-This project is released under the **MIT License**.
-
----
-
-⭐ **If you like this project, please star the repo!**
-
+### References
+* S. Foucart and H. Rauhut, *A mathematical introduction to compressive sensing* (Birkhäuser, 2013)
+* J. Bobin, J.-L. Starck, and R. Ottensamer, *Compressed Sensing in Astronomy*, [arXiv:0802.0131](http://arxiv.org/abs/0802.0131)
+* A. Beck and M. Teboulle, *A fast iterative shrinkage-thresholding algorithm for linear inverse problems*, SIAM J. Imaging Sci., 2(1), 183–202 (2009)
